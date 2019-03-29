@@ -14,6 +14,8 @@ import { IMapAntialiasSettings, IMapRenderingManager, MapRenderingManager } from
 import { ConcurrentDecoderFacade } from "./ConcurrentDecoderFacade";
 import { CopyrightInfo } from "./CopyrightInfo";
 import { DataSource } from "./DataSource";
+import { PhasedTileGeometryManager } from "./geometry/PhasedTileGeometryManager";
+import { TileGeometryManager } from "./geometry/TileGeometryManager";
 import { MapViewImageCache } from "./image/MapViewImageCache";
 import { MapViewFog } from "./MapViewFog";
 import { PickHandler, PickResult } from "./PickHandler";
@@ -580,6 +582,7 @@ export class MapView extends THREE.EventDispatcher {
     private m_lastTileIds: string = "";
     private m_languages: string[] | undefined;
     private m_copyrightInfo: CopyrightInfo[] = [];
+    private m_tileGeometryManager: TileGeometryManager;
 
     private m_animatedExtrusionHandler: AnimatedExtrusionHandler;
 
@@ -724,7 +727,14 @@ export class MapView extends THREE.EventDispatcher {
             mapPassAntialiasSettings
         );
 
-        this.m_visibleTiles = new VisibleTileSet(this.m_camera, this.m_visibleTileSetOptions);
+        // this.m_tileGeometryManager = new SimpleTileGeometryManager(this);
+        this.m_tileGeometryManager = new PhasedTileGeometryManager(this);
+
+        this.m_visibleTiles = new VisibleTileSet(
+            this.m_camera,
+            this.m_tileGeometryManager,
+            this.m_visibleTileSetOptions
+        );
 
         this.m_animatedExtrusionHandler = new AnimatedExtrusionHandler(this);
 
@@ -770,11 +780,19 @@ export class MapView extends THREE.EventDispatcher {
     }
 
     /**
-     * The [[AnimatedExtrusionHandler]] controlls animated extrussion effect
-     * of the extruded objects in the [[Tile]]
+     * The [[AnimatedExtrusionHandler]] controls the animated extrusion effect of the extruded
+     * objects in the [[Tile]].
      */
     get animatedExtrusionHandler(): AnimatedExtrusionHandler {
         return this.m_animatedExtrusionHandler;
+    }
+
+    /**
+     * The [[TileGeometryManager]] manages geometry during loading and handles hiding geometry of
+     * specified [[GeometryKind]]s.
+     */
+    get tileGeometryManager(): TileGeometryManager | undefined {
+        return this.m_tileGeometryManager;
     }
 
     /**
@@ -1463,6 +1481,13 @@ export class MapView extends THREE.EventDispatcher {
     }
 
     /**
+     * Returns `true` if the current frame will immediately be followed by another frame.
+     */
+    get isDynamicFrame(): boolean {
+        return this.cameraIsMoving || this.animating || this.m_updatePending;
+    }
+
+    /**
      * Returns the ratio between a pixel and a world unit for the current camera (in the center of
      * the camera projection).
      */
@@ -1860,7 +1885,7 @@ export class MapView extends THREE.EventDispatcher {
         ++this.m_frameNumber;
 
         const stats = PerformanceStatistics.instance;
-        const gatherStatistics: boolean = stats.enabled;
+        const gatherStatistics = stats.enabled;
 
         const frameStartTime = PerformanceTimer.now();
 
@@ -1953,11 +1978,20 @@ export class MapView extends THREE.EventDispatcher {
             currentFrameEvent.addValue("renderCount.numTilesLoading", 0);
 
             // Increment the counters for all data sources.
-            renderList.forEach(({ zoomLevel, renderedTiles, visibleTiles, numTilesLoading }) => {
-                currentFrameEvent!.addValue("renderCount.numTilesRendered", renderedTiles.length);
-                currentFrameEvent!.addValue("renderCount.numTilesVisible", visibleTiles.length);
-                currentFrameEvent!.addValue("renderCount.numTilesLoading", numTilesLoading);
-            });
+            renderList.forEach(
+                ({ renderedTiles, visibleTiles, numTilesLoading, numTilesWithPartialGeometry }) => {
+                    currentFrameEvent!.addValue(
+                        "renderCount.numTilesRendered",
+                        renderedTiles.length
+                    );
+                    currentFrameEvent!.addValue("renderCount.numTilesVisible", visibleTiles.length);
+                    currentFrameEvent!.addValue("renderCount.numTilesLoading", numTilesLoading);
+                    currentFrameEvent!.addValue(
+                        "renderCount.numTilesWithPartialGeometry",
+                        numTilesWithPartialGeometry
+                    );
+                }
+            );
         }
 
         this.m_movementDetector.checkCameraMoved(this, time);
@@ -1974,8 +2008,12 @@ export class MapView extends THREE.EventDispatcher {
             this.m_skyBackground.update(this.m_camera);
         }
 
-        const isDynamicFrame = this.cameraIsMoving || this.animating || this.m_updatePending;
-        this.mapRenderingManager.render(this.m_renderer, this.m_scene, camera, !isDynamicFrame);
+        this.mapRenderingManager.render(
+            this.m_renderer,
+            this.m_scene,
+            camera,
+            !this.isDynamicFrame
+        );
 
         if (gatherStatistics) {
             drawTime = PerformanceTimer.now();
@@ -2141,7 +2179,11 @@ export class MapView extends THREE.EventDispatcher {
         this.m_lookAtDistance = 3000;
 
         this.calculateFocalLength(height);
-        this.m_visibleTiles = new VisibleTileSet(this.m_camera, this.m_visibleTileSetOptions);
+        this.m_visibleTiles = new VisibleTileSet(
+            this.m_camera,
+            this.m_tileGeometryManager,
+            this.m_visibleTileSetOptions
+        );
         // ### move & customize
         this.resize(width, height);
 

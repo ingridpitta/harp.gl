@@ -18,7 +18,8 @@ import {
     Tile,
     TileObject
 } from "@here/harp-mapview";
-import { ContextualArabicConverter } from "@here/harp-text-canvas";
+import { TileGeometryCreator } from "@here/harp-mapview/lib/geometry/TileGeometryCreator";
+import { ContextualArabicConverter, FontUnit } from "@here/harp-text-canvas";
 import * as THREE from "three";
 import {
     GeoJsonPoiGeometry,
@@ -126,12 +127,13 @@ export class GeoJsonTile extends Tile {
      * @param decodedTile The decoded tile received by the [[GeoJsonDecoder]].
      */
     createTextElements(decodedTile: DecodedTile) {
+        const geometryCreator = new TileGeometryCreator();
         if (decodedTile.poiGeometries !== undefined) {
             for (const geometry of decodedTile.poiGeometries) {
                 const techniqueIndex = geometry.technique!;
                 const technique = decodedTile.techniques[techniqueIndex];
                 if (isPoiTechnique(technique)) {
-                    this.addPois(geometry, technique);
+                    this.addPois(geometryCreator, geometry, technique);
                 }
             }
         }
@@ -140,17 +142,17 @@ export class GeoJsonTile extends Tile {
                 const techniqueIndex = geometry.technique!;
                 const technique = decodedTile.techniques[techniqueIndex];
                 if (isTextTechnique(technique)) {
-                    this.addTexts(geometry, technique);
+                    this.addTexts(geometryCreator, geometry, technique);
                 }
             }
         }
         if (decodedTile.textPathGeometries !== undefined) {
-            this.m_preparedPaths = this.prepareTextPaths(decodedTile.textPathGeometries);
+            this.m_preparedPaths = geometryCreator.prepareTextPaths(decodedTile);
             for (const textPath of this.m_preparedPaths) {
                 const techniqueIndex = textPath.technique!;
                 const technique = decodedTile.techniques[techniqueIndex];
                 if (isTextTechnique(technique)) {
-                    this.addTextPaths(textPath, technique);
+                    this.addTextPaths(geometryCreator, textPath, technique);
                 }
             }
         }
@@ -162,14 +164,18 @@ export class GeoJsonTile extends Tile {
      * @param geometry The TextPath geometry.
      * @param technique Text technique.
      */
-    private addTextPaths(geometry: GeoJsonTextPathGeometry, technique: TextTechnique) {
+    private addTextPaths(
+        geometryCreator: TileGeometryCreator,
+        geometry: GeoJsonTextPathGeometry,
+        technique: TextTechnique
+    ) {
         const path: THREE.Vector2[] = [];
         for (let i = 0; i < geometry.path.length; i += 3) {
             path.push(new THREE.Vector2(geometry.path[i], geometry.path[i + 1]));
         }
 
         const properties = geometry.objInfos !== undefined ? geometry.objInfos : undefined;
-        this.addTextPath(path, geometry.text, technique, properties);
+        this.addTextPath(geometryCreator, path, geometry.text, technique, properties);
     }
 
     /**
@@ -180,6 +186,7 @@ export class GeoJsonTile extends Tile {
      * @param geojsonProperties Properties defined by the user.
      */
     private addTextPath(
+        geometryCreator: TileGeometryCreator,
         path: THREE.Vector2[],
         text: string,
         technique: TextTechnique,
@@ -197,8 +204,8 @@ export class GeoJsonTile extends Tile {
         const textElement = new TextElement(
             ContextualArabicConverter.instance.convert(text),
             path,
-            this.getRenderStyle(technique),
-            this.getLayoutStyle(technique),
+            geometryCreator.getRenderStyle(this, technique),
+            geometryCreator.getLayoutStyle(this, technique),
             priority,
             xOffset,
             yOffset,
@@ -234,7 +241,11 @@ export class GeoJsonTile extends Tile {
      * @param geometry The Text geometry.
      * @param technique Text technique.
      */
-    private addTexts(geometry: GeoJsonTextGeometry, technique: TextTechnique) {
+    private addTexts(
+        geometryCreator: TileGeometryCreator,
+        geometry: GeoJsonTextGeometry,
+        technique: TextTechnique
+    ) {
         const attribute = getBufferAttribute(geometry.positions);
 
         for (let index = 0; index < attribute.count; index++) {
@@ -246,7 +257,7 @@ export class GeoJsonTile extends Tile {
             const properties =
                 geometry.objInfos !== undefined ? geometry.objInfos[index] : undefined;
             const text = geometry.stringCatalog![index] as string;
-            this.addText(currentVertexCache, text, technique, properties);
+            this.addText(geometryCreator, currentVertexCache, text, technique, properties);
         }
     }
 
@@ -258,6 +269,7 @@ export class GeoJsonTile extends Tile {
      * @param geojsonProperties Properties defined by the user.
      */
     private addText(
+        geometryCreator: TileGeometryCreator,
         position: THREE.Vector2,
         text: string,
         technique: TextTechnique,
@@ -275,8 +287,8 @@ export class GeoJsonTile extends Tile {
         const textElement = new TextElement(
             ContextualArabicConverter.instance.convert(text),
             position,
-            this.getRenderStyle(technique),
-            this.getLayoutStyle(technique),
+            geometryCreator.getRenderStyle(this, technique),
+            geometryCreator.getLayoutStyle(this, technique),
             priority,
             xOffset,
             yOffset,
@@ -308,7 +320,11 @@ export class GeoJsonTile extends Tile {
      * @param geometry The POI geometry.
      * @param technique POI technique.
      */
-    private addPois(geometry: GeoJsonPoiGeometry, technique: PoiTechnique) {
+    private addPois(
+        geometryCreator: TileGeometryCreator,
+        geometry: GeoJsonPoiGeometry,
+        technique: PoiTechnique
+    ) {
         const attribute = getBufferAttribute(geometry.positions);
 
         const currentVertexCache = new THREE.Vector2();
@@ -317,7 +333,7 @@ export class GeoJsonTile extends Tile {
             currentVertexCache.set(attribute.getX(index), attribute.getY(index));
             const properties =
                 geometry.objInfos !== undefined ? geometry.objInfos[index] : undefined;
-            this.addPoi(currentVertexCache, technique, properties);
+            this.addPoi(geometryCreator, currentVertexCache, technique, properties);
         }
     }
 
@@ -328,7 +344,12 @@ export class GeoJsonTile extends Tile {
      * @param technique Technique in use.
      * @param geojsonProperties Properties defined by the user.
      */
-    private addPoi(position: THREE.Vector2, technique: PoiTechnique, geojsonProperties?: {}) {
+    private addPoi(
+        geometryCreator: TileGeometryCreator,
+        position: THREE.Vector2,
+        technique: PoiTechnique,
+        geojsonProperties?: {}
+    ) {
         const label = DEFAULT_LABELED_ICON.label;
         const priority =
             technique.priority === undefined ? DEFAULT_LABELED_ICON.priority : technique.priority;
@@ -342,8 +363,8 @@ export class GeoJsonTile extends Tile {
         const textElement = new TextElement(
             ContextualArabicConverter.instance.convert(label),
             position,
-            this.getRenderStyle(technique),
-            this.getLayoutStyle(technique),
+            geometryCreator.getRenderStyle(this, technique),
+            geometryCreator.getLayoutStyle(this, technique),
             priority,
             xOffset,
             yOffset,

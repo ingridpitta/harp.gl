@@ -897,3 +897,40 @@ export namespace TileOffsetUtils {
         return result;
     }
 }
+
+/**
+ * Add basic methods to Set<T>.
+ */
+declare global {
+    interface Set<T> {
+        /**
+         * Return `true` if the this set has all the elements that are in the other set.
+         */
+        isSuperset(subset: Set<T>): boolean;
+
+        /**
+         * Return `true` if the this set and the other set share at least a single element.
+         */
+        hasIntersection(subset: Set<T>): boolean;
+    }
+}
+
+//TODO: Complete from the code here:
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set
+Set.prototype.isSuperset = function(subset: Set<any>): boolean {
+    for (const elem of subset) {
+        if (!this.has(elem)) {
+            return false;
+        }
+    }
+    return true;
+};
+
+Set.prototype.hasIntersection = function(set: any) {
+    for (const elem of set) {
+        if (this.has(elem)) {
+            return true;
+        }
+    }
+    return false;
+};

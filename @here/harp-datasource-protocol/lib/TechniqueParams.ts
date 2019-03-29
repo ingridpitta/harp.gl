@@ -7,6 +7,76 @@
 import { MaybeInterpolatedProperty } from "./InterpolatedPropertyDefs";
 
 /**
+ * The kind of geometry is used to
+ *
+ * a) Group objects together, allowing the group to be hidden or displayed.
+ *
+ * b) Assigning the objects a loading phase. If a [[PhasedTileGeometryManager]] is used, techniques
+ *      without a `GeometryKind` may not be processed (at the desired phase).
+ */
+export enum GeometryKind {
+    /**
+     * Unassigned.
+     */
+    Other = "_other_",
+
+    /**
+     * Background geometry.
+     */
+    Background = "background",
+
+    /**
+     * Ground geometry.
+     */
+    Ground = "ground",
+
+    /**
+     * Default value for the FillTechnique.
+     */
+    Area = "area",
+
+    /**
+     * Default value for all line techniques.
+     */
+    Line = "line",
+
+    /**
+     * Default value for the FillTechnique.
+     */
+    Water = "water",
+
+    /**
+     * Political borders.
+     */
+    Border = "border",
+
+    /**
+     * Basis for all roads.
+     */
+    Road = "road",
+
+    /**
+     * Default value for the ExtrudedPolygonTechnique.
+     */
+    Building = "building",
+
+    /**
+     * Default value for the TextTechnique, LineMarkerTechnique and the PoiTechnique.
+     */
+    Label = "label",
+
+    /**
+     * Anything that may show up last.
+     */
+    Detail = "detail"
+}
+
+/**
+ * A set of [[GeometryKind]]s
+ */
+export type GeometryKindSet = Set<GeometryKind>;
+
+/**
  * Common attributes or all [[Technique]]s.
  */
 export interface BaseTechniqueParams {
@@ -18,7 +88,7 @@ export interface BaseTechniqueParams {
     /**
      * The render order of the objects created using this technique.
      *
-     * If not specified in style file, [[StyleSetEvaluator]] will assign monotonicaly increasing
+     * If not specified in style file, [[StyleSetEvaluator]] will assign monotonically increasing
      * values according to style position in file.
      */
     renderOrder: number;
@@ -55,10 +125,16 @@ export interface BaseTechniqueParams {
      * opacity and stops fading out. A value of <= 0.0 disables fading.
      */
     fadeFar?: number;
+
+    /**
+     * Specified kind of geometry. One kind is set as default in the technique, and can be
+     * overridden in the style.
+     */
+    kind?: GeometryKind | GeometryKindSet;
 }
 
 /**
- * Standard technique paraneters.
+ * Standard technique parameters.
  */
 export interface BaseStandardTechniqueParams extends BaseTechniqueParams {
     /**
