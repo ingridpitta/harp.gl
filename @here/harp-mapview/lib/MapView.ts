@@ -69,7 +69,6 @@ export enum MapViewEventNames {
 }
 
 const logger = LoggerManager.instance.create("MapView");
-const DEFAULT_FONT_CATALOG = "./resources/fonts/Default_FontCatalog.json";
 const DEFAULT_CLEAR_COLOR = 0xefe9e1;
 const EYE_INVERSE = new THREE.Vector3(0, 0, -1);
 const DEFAULT_FOV_CALCULATION: FovCalculation = { type: "dynamic", fov: 40 };
@@ -464,6 +463,8 @@ export interface MapViewOptions {
  * Default settings used by [[MapView]] collected in one place.
  */
 export const MapViewDefaults = {
+    fontCatalog: "./resources/fonts/Default_FontCatalog.json",
+    theme: "",
     projection: mercatorProjection,
 
     maxVisibleDataSourceTiles: 20,
@@ -488,7 +489,7 @@ export class MapView extends THREE.EventDispatcher {
     /**
      * The string of the default font catalog to use for labelling.
      */
-    defaultFontCatalog: string = DEFAULT_FONT_CATALOG;
+    defaultFontCatalog: string = MapViewDefaults.fontCatalog;
 
     /**
      * The instance of [[MapRenderingManager]] managing the rendering of the map. It is a public
