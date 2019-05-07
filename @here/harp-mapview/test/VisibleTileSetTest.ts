@@ -47,7 +47,8 @@ describe("VisibleTileSet", function() {
 
         ds.attach(new FakeMapView() as MapView);
 
-        const renderList = vts.updateRenderList(worldCenter, zoomLevel, storageLevel, [ds]);
+        vts.updateRenderList(worldCenter, zoomLevel, storageLevel, [ds]);
+        const renderList = vts.dataSourceTileList;
 
         assert.equal(renderList.length, 1);
         assert.equal(renderList[0].visibleTiles.length, 2);
@@ -82,7 +83,8 @@ describe("VisibleTileSet", function() {
 
         ds.attach(new FakeMapView() as MapView);
 
-        const renderList = vts.updateRenderList(worldCenter, zoomLevel, storageLevel, [ds]);
+        vts.updateRenderList(worldCenter, zoomLevel, storageLevel, [ds]);
+        const renderList = vts.dataSourceTileList;
 
         assert.equal(renderList.length, 1);
         assert.equal(renderList[0].visibleTiles.length, 5);
@@ -118,7 +120,8 @@ describe("VisibleTileSet", function() {
         assert.exists(parentTile);
         parentTile.forceHasGeometry(true);
 
-        const renderList = vts.updateRenderList(worldCenter, zoomLevel, storageLevel, [dataSource]);
+        vts.updateRenderList(worldCenter, zoomLevel, storageLevel, [dataSource]);
+        const renderList = vts.dataSourceTileList;
 
         assert.equal(renderList.length, 1);
         assert.equal(renderList[0].visibleTiles.length, 2);
@@ -142,7 +145,8 @@ describe("VisibleTileSet", function() {
 
         ds.attach(new FakeMapView() as MapView);
 
-        const renderList = vts.updateRenderList(worldCenter, zoomLevel, storageLevel, [ds]);
+        vts.updateRenderList(worldCenter, zoomLevel, storageLevel, [ds]);
+        const renderList = vts.dataSourceTileList;
 
         // fill cache with additional arbitrary not visible tile
         // that shall be disposed() in this test
