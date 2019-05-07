@@ -6,7 +6,6 @@
 import { MathUtils, Projection, ProjectionType, TileKey, TilingScheme } from "@here/harp-geoutils";
 import { LRUCache } from "@here/harp-lrucache";
 import * as THREE from "three";
-
 import { DataSource } from "./DataSource";
 import { CalculationStatus, ElevationRangeSource } from "./ElevationRangeSource";
 import { MapTileCuller } from "./MapTileCuller";
@@ -258,7 +257,8 @@ export class VisibleTileSet {
         worldCenter: THREE.Vector3,
         storageLevel: number,
         zoomLevel: number,
-        dataSources: DataSource[]
+        dataSources: DataSource[],
+        elevationRangeSource?: ElevationRangeSource
     ): DataSourceTileList[] {
         this.m_viewProjectionMatrix.multiplyMatrices(
             this.camera.projectionMatrix,
@@ -271,16 +271,6 @@ export class VisibleTileSet {
 
         if (this.options.extendedFrustumCulling) {
             this.m_mapTileCuller.setup();
-        }
-
-        let elevationRangeSource: ElevationRangeSource | undefined;
-        for (const dataSource of dataSources) {
-            elevationRangeSource = dataSource.getElevationRangeSource();
-            if (elevationRangeSource !== undefined) {
-                // We don't support multiple elevation range sources, but just take the first one
-                // that we find in the enabled data sources.
-                break;
-            }
         }
 
         const visibleTileResult = this.getVisibleTilesForDataSources(

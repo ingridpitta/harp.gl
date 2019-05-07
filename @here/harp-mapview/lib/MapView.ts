@@ -14,6 +14,8 @@ import { IMapAntialiasSettings, IMapRenderingManager, MapRenderingManager } from
 import { ConcurrentDecoderFacade } from "./ConcurrentDecoderFacade";
 import { CopyrightInfo } from "./CopyrightInfo";
 import { DataSource } from "./DataSource";
+import { ElevationProvider } from "./ElevationProvider";
+import { ElevationRangeSource } from "./ElevationRangeSource";
 import { MapViewImageCache } from "./image/MapViewImageCache";
 import { MapViewFog } from "./MapViewFog";
 import { PickHandler, PickResult } from "./PickHandler";
@@ -505,6 +507,9 @@ export class MapView extends THREE.EventDispatcher {
         | ScreenCollisionsDebug = new ScreenCollisions();
 
     private m_visibleTiles: VisibleTileSet;
+
+    private m_elevationRangeSource?: ElevationRangeSource;
+    private m_elevationProvider?: ElevationProvider;
     private m_visibleTileSetLock: boolean = false;
 
     private m_zoomLevel: number = DEFAULT_MIN_ZOOM_LEVEL;
@@ -1752,6 +1757,22 @@ export class MapView extends THREE.EventDispatcher {
         return this.m_fog;
     }
 
+    setElevationSource(
+        elevationSource: DataSource,
+        elevationRangeSource: ElevationRangeSource,
+        elevationProvider: ElevationProvider
+    ) {
+        // Try to remove incase this method was already called, will do nothing if it doesn't exist.
+        this.removeDataSource(elevationSource);
+        this.addDataSource(elevationSource);
+        this.m_elevationRangeSource = elevationRangeSource;
+        this.m_elevationProvider = elevationProvider;
+    }
+
+    get elevationProvider(): ElevationProvider | undefined {
+        return this.m_elevationProvider;
+    }
+
     /**
      * Updates the camera and the projections and resets the screen collisions,
      * note, setupCamera must be called before this is called.
@@ -1922,7 +1943,8 @@ export class MapView extends THREE.EventDispatcher {
                 this.m_worldCenter,
                 this.storageLevel,
                 Math.floor(this.zoomLevel),
-                this.getEnabledTileDataSources()
+                this.getEnabledTileDataSources(),
+                this.m_elevationRangeSource
             );
         }
 
